@@ -1,6 +1,4 @@
-Here's the `README.md` for the `WelcomeView` package, structured similarly to the `BottomDrawer` README you provided:
-
-\<h1 align="left"\>WelcomeView\</h1\>
+# WelcomeView
 
 ## Installation
 
