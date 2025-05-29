@@ -210,7 +210,7 @@ public struct WelcomeMenu: View {
     }
 }
 
-public struct RecentFileView: View, Hashable {
+public struct RecentFileView: View {
     public init(fileURL: URL, action: @escaping (URL) -> Void, resetSelection: Binding<Bool>) {
         self.fileURL = fileURL
         self.filePath = fileURL.deletingLastPathComponent().path
@@ -279,14 +279,6 @@ public struct RecentFileView: View, Hashable {
                 }
             }
         }
-    }
-
-    public static func == (lhs: RecentFileView, rhs: RecentFileView) -> Bool {
-        lhs.fileURL == rhs.fileURL
-    }
-
-    public func hash(into hasher: inout Hasher) {
-        hasher.combine(fileURL)
     }
 }
 
