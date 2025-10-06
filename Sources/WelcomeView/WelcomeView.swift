@@ -220,7 +220,14 @@ public struct WelcomeMenu: View {
     }
 }
 
-public struct RecentFileView: View {
+public struct RecentFileView: View, Equatable {
+    public nonisolated static func == (lhs: RecentFileView, rhs: RecentFileView) -> Bool {
+        lhs.fileURL == rhs.fileURL &&
+        lhs.filePath == rhs.filePath &&
+        lhs.fileName == rhs.fileName &&
+        lhs.fileExtension == rhs.fileExtension
+    }
+    
     public init(fileURL: URL, onDelete: ((URL) -> Void)? = nil, action: @escaping (URL) -> Void) {
         self.fileURL = fileURL
         self.filePath = fileURL.deletingLastPathComponent().path
@@ -310,3 +317,4 @@ public extension String {
         self.replacingOccurrences(of: string, with: "")
     }
 }
+
