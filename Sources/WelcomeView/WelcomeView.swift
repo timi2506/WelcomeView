@@ -158,7 +158,6 @@ public struct WelcomeMenuButton: View {
     public let title: String
     public let image: Image
     public let action: () -> Void
-
     public init(title: String, image: Image, action: @escaping () -> Void) {
         self.title = title
         self.image = image
@@ -210,17 +209,28 @@ public struct WelcomeMenu: View {
     }
 }
 
+@MainActor public class RecentFileSelectionManager: ObservableObject {
+    private init() {
+        print("Recent File Selection Manager initialized")
+    }
+    public static let shared = RecentFileSelectionManager()
+    @Published fileprivate var resetSelection = false
+    public func deselectCurrentFile() {
+        resetSelection = true
+    }
+}
+
 public struct RecentFileView: View {
-    public init(fileURL: URL, action: @escaping (URL) -> Void, resetSelection: Binding<Bool>) {
+    public init(fileURL: URL, onDelete: ((URL) -> Void)? = nil, action: @escaping (URL) -> Void) {
         self.fileURL = fileURL
         self.filePath = fileURL.deletingLastPathComponent().path
+        self.onDelete = onDelete
         if !fileURL.pathExtension.isEmpty {
             self.fileName = fileURL.lastPathComponent.replacingOccurrences(of: ".\(fileURL.pathExtension)", with: "")
         } else {
             self.fileName = fileURL.lastPathComponent
         }
         self.openAction = action
-        self._resetSelection = resetSelection
         self.fileExtension = fileURL.pathExtension
     }
     
@@ -229,11 +239,11 @@ public struct RecentFileView: View {
     public let fileName: String
     public let fileExtension: String
     public var openAction: (URL) -> Void
+    public var onDelete: ((URL) -> Void)? = nil
     @State private var selected = false
-    @Binding public var resetSelection: Bool
     @State private var immuneToReset = false
     @State private var pressedBefore = false
-
+    @StateObject private var selectionManager = RecentFileSelectionManager.shared
     public var body: some View {
         if fileURL.isFileURL {
             HStack {
@@ -265,15 +275,20 @@ public struct RecentFileView: View {
                         pressedBefore = false
                     }
                 }
-                resetSelection = true
+                selectionManager.deselectCurrentFile()
                 immuneToReset = true
                 selected = true
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    resetSelection = false
+                    selectionManager.resetSelection = false
                     immuneToReset = false
                 }
             }
-            .onChange(of: resetSelection) { bool in
+            .contextMenu {
+                if let onDelete {
+                    Button("Delete", systemImage: "trash") {}
+                }
+            }
+            .onChange(of: selectionManager.resetSelection) { bool in
                 if !immuneToReset && bool {
                     selected = false
                 }
