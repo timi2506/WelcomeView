@@ -246,13 +246,13 @@ public struct RecentFileView: View {
                     
                     Text(filePath)
                         .font(.caption)
-                        .foregroundStyle(.gray)
+                        .foregroundStyle(.secondary)
                         .lineLimit(1)
                 }
                 Spacer()
             }
             .padding(7.5)
-            .background(.tint.secondary.opacity(selected ? 1 : 0))
+            .background(.tint.opacity(selected ? 1 : 0))
             .cornerRadius(5)
             .contentShape(.rect)
             .onTapGesture {
