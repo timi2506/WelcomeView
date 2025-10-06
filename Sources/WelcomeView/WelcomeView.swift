@@ -292,7 +292,7 @@ public struct RecentFileView: View, Equatable {
             }
             .contextMenu {
                 if let onDelete {
-                    Button("Delete", systemImage: "trash") {}
+                    Button("Delete", systemImage: "trash") { onDelete(fileURL) }
                 }
             }
             .onChange(of: selectionManager.resetSelection) { bool in
