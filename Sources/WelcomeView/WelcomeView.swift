@@ -1,68 +1,42 @@
 import SwiftUI
 import UniformTypeIdentifiers
+import Combine
 
-@available(macOS 15.0, *)
-public struct WelcomeWindowScene: Scene {
-    public let id: String?
-    public let content: WelcomeView
+public struct WelcomeViewWindow: View {
+    let content: WelcomeView
     
-    public init(id: String? = nil, content: WelcomeView) {
-        self.content = content
-        self.id = id
+    public var body: some View {
+        content
+            .padding(7.5)
+            .background(.thickMaterial)
+            .onWindowAppear { window in
+                window?.isMovableByWindowBackground = true
+                window?.backgroundColor = .clear
+                window?.styleMask = .borderless
+            }
+            .cornerRadius(25)
     }
-    
-    public var body: some Scene {
-        WindowGroup(id: id ?? "") {
-            content
-                .padding(5)
-                .background(.thickMaterial)
-                .background(
-                    WindowAccessor(callback: { window in
-                        window?.isMovableByWindowBackground = true
-                    })
-                )
-                .cornerRadius(10)
-        }
-        .windowStyle(.plain)
-    }
-}
-
-public struct WindowAccessor: NSViewRepresentable {
-    public var callback: (NSWindow?) -> Void
-
-    public init(callback: @escaping (NSWindow?) -> Void) {
-        self.callback = callback
-    }
-
-    public func makeNSView(context: Context) -> NSView {
-        let view = NSView()
-        DispatchQueue.main.async {
-            self.callback(view.window)
-        }
-        return view
-    }
-
-    public func updateNSView(_ nsView: NSView, context: Context) {}
 }
 
 public struct WelcomeView: View {
-    @Environment(\.dismissWindow) private var dismissWindow
-    @Binding public var titleText: String
-    @Binding public var menu: WelcomeMenu
+    public var titleText: String
+    public var menu: WelcomeMenu
     public var emptyMessage = "No Recent Files"
-    @Binding public var recents: [RecentFileView]
+    public let recentFileProvider: RecentFileProvider
+    @State public var recents: [RecentFile]
     @State private var resetSelection = false
-    
+    @State private var selectedFile: URL?
     public init(
-        titleText: Binding<String>,
-        menu: Binding<WelcomeMenu>,
+        titleText: String,
+        menu: WelcomeMenu,
         emptyMessage: String = "No Recent Files",
-        recents: Binding<[RecentFileView]>
+        recentFileProvider: RecentFileProvider = .default
     ) {
-        self._titleText = titleText
-        self._menu = menu
+        self.titleText = titleText
+        self.menu = menu
         self.emptyMessage = emptyMessage
-        self._recents = recents
+        self.recentFileProvider = recentFileProvider
+        self.recents = []
     }
 
     public var body: some View {
@@ -114,44 +88,114 @@ public struct WelcomeView: View {
                             Spacer()
                         }
                     } else {
-                        ScrollView(.vertical, showsIndicators: false) {
-                            VStack(alignment: .leading, spacing: 0) {
-                                ForEach(recents, id: \.self.fileURL) { view in
-                                    view
-                                }
-                                Spacer()
+                        List(selection: $selectedFile) {
+                            ForEach(recents) { file in
+                                makeRecentView(for: file)
+                                    .tag(file.url)
+                                    .listRowSeparator(.hidden)
                             }
-                            .padding(5)
                         }
+                        .listStyle(.inset)
+                        .refreshable {
+                            withAnimation {
+                                recents = recentFileProvider.provideRecentFiles()
+                            }
+                        }
+                        .scrollIndicators(.never)
                     }
                 }
                 .frame(width: 250)
-                .background(.gray.opacity(0.10))
+                .background(.gray.opacity(0.25))
                 .onTapGesture {
                     resetSelection = true
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                         resetSelection = false
                     }
                 }
-                .cornerRadius(7.5)
+                .cornerRadius(20)
             }
-            Button(action: {
-                dismissWindow.callAsFunction()
-            }) {
-                Image(systemName: "xmark.circle.fill")
-                    .foregroundStyle(.gray.opacity(0.50))
-            }
-            .buttonStyle(.plain)
+            CloseWindowButton()
             .frame(maxWidth: .infinity, maxHeight: 450, alignment: .topLeading)
             .padding(5)
         }
         .frame(width: 745, height: 450.0)
+        .onAppear {
+            withAnimation {
+                recents = recentFileProvider.provideRecentFiles()
+            }
+        }
     }
     
     private func getCurrentAppVersion() -> String {
         let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "Unknown"
         return appVersion
     }
+    private func makeRecentView(for file: RecentFile) -> some View {
+        HStack {
+            Image(nsImage: recentFileProvider.makeIcon(for: file))
+                .font(.system(size: 25))
+            VStack(alignment: .leading) {
+                Text(recentFileProvider.makeTitle(for: file))
+                    .bold()
+                    .lineLimit(1)
+                
+                Text(recentFileProvider.makeSubtitle(for: file))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+            Spacer()
+        }
+        .padding(.vertical, 5)
+        .contentShape(.rect)
+        .simultaneousGesture(
+            TapGesture()
+                .onEnded { _ in
+                    recentFileProvider.openFile(file)
+                },
+            isEnabled: selectedFile == file.url
+        )
+        .overlay {
+            if selectedFile == file.url {
+                Button("") {
+                    recentFileProvider.openFile(file)
+                }
+                .buttonStyle(.plain)
+                .keyboardShortcut(.defaultAction)
+                .offset(x: -100)
+            }
+        }
+    }
+}
+
+struct CloseWindowButton: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSView {
+        let containerView = NSView()
+        
+        let closeButton = Button(action: { [weak containerView] in
+            containerView?.window?.close()
+        }) {
+            Image(systemName: "xmark.circle.fill")
+                .foregroundStyle(.secondary)
+        }
+        .buttonStyle(.plain)
+
+        let hostingView = NSHostingView(rootView: closeButton)
+        hostingView.translatesAutoresizingMaskIntoConstraints = false
+        
+        containerView.addSubview(hostingView)
+        
+        NSLayoutConstraint.activate([
+            hostingView.leadingAnchor.constraint(equalTo: containerView.leadingAnchor),
+            hostingView.trailingAnchor.constraint(equalTo: containerView.trailingAnchor),
+            hostingView.topAnchor.constraint(equalTo: containerView.topAnchor),
+            hostingView.bottomAnchor.constraint(equalTo: containerView.bottomAnchor)
+        ])
+        
+        return containerView
+    }
+    
+    func updateNSView(_ nsView: NSView, context: Context) { }
 }
 
 public struct WelcomeMenuButton: View {
@@ -176,8 +220,8 @@ public struct WelcomeMenuButton: View {
                 Spacer()
             }
             .padding(7.5)
-            .background(.gray.opacity(0.10))
-            .cornerRadius(5)
+            .background(.gray.opacity(0.25))
+            .clipShape(.capsule)
         }
         .buttonStyle(.plain)
     }
@@ -209,112 +253,78 @@ public struct WelcomeMenu: View {
     }
 }
 
-@MainActor public class RecentFileSelectionManager: ObservableObject {
-    private init() {
-        print("Recent File Selection Manager initialized")
+@MainActor
+public protocol RecentFileProvider {
+    func provideRecentFiles() -> [RecentFile]
+    func openFile(_ file: RecentFile)
+    func makeTitle(for file: RecentFile) -> String
+    func makeSubtitle(for file: RecentFile) -> String
+    func makeIcon(for file: RecentFile) -> NSImage
+}
+
+public extension RecentFileProvider where Self == RecentDocumentControllerFileProvider {
+    static var `default`: RecentDocumentControllerFileProvider { RecentDocumentControllerFileProvider() }
+}
+
+public extension RecentFileProvider {
+    func makeTitle(for file: RecentFile) -> String {
+        file.customTitle ?? file.url.lastPathComponent
     }
-    public static let shared = RecentFileSelectionManager()
-    @Published fileprivate var resetSelection = false
-    public func deselectCurrentFile() {
-        resetSelection = true
+    func makeSubtitle(for file: RecentFile) -> String {
+        file.customSubtitle ?? file.url
+            .deletingLastPathComponent()
+            .path(percentEncoded: false)
+            .replacingOccurrences(of: URL.userDirectory.path, with: "~")
+    }
+    func makeIcon(for file: RecentFile) -> NSImage {
+        file.customIcon ?? NSWorkspace.shared.icon(forFile: file.url.path)
     }
 }
 
-public struct RecentFileView: View, Equatable {
-    public nonisolated static func == (lhs: RecentFileView, rhs: RecentFileView) -> Bool {
-        lhs.fileURL == rhs.fileURL &&
-        lhs.filePath == rhs.filePath &&
-        lhs.fileName == rhs.fileName &&
-        lhs.fileExtension == rhs.fileExtension
+public struct RecentFile: Hashable, Identifiable {
+    public init(customIcon: NSImage? = nil, customTitle: String? = nil, customSubtitle: String? = nil, url: URL) {
+        self.customIcon = customIcon
+        self.customTitle = customTitle
+        self.customSubtitle = customSubtitle
+        self.url = url
+    }
+    public let id = UUID()
+
+    let customIcon: NSImage?
+    let customTitle: String?
+    let customSubtitle: String?
+    let url: URL
+}
+
+@MainActor
+public class RecentDocumentControllerFileProvider: RecentFileProvider {
+    public func openFile(_ file: RecentFile) {
+        NSWorkspace.shared.open(file.url)
     }
     
-    public init(fileURL: URL, onDelete: ((URL) -> Void)? = nil, action: @escaping (URL) -> Void) {
-        self.fileURL = fileURL
-        self.filePath = fileURL.deletingLastPathComponent().path
-        self.onDelete = onDelete
-        if !fileURL.pathExtension.isEmpty {
-            self.fileName = fileURL.lastPathComponent.replacingOccurrences(of: ".\(fileURL.pathExtension)", with: "")
-        } else {
-            self.fileName = fileURL.lastPathComponent
-        }
-        self.openAction = action
-        self.fileExtension = fileURL.pathExtension
-    }
-    
-    public let fileURL: URL
-    public let filePath: String
-    public let fileName: String
-    public let fileExtension: String
-    public var openAction: (URL) -> Void
-    public var onDelete: ((URL) -> Void)? = nil
-    @State private var selected = false
-    @State private var immuneToReset = false
-    @State private var pressedBefore = false
-    @StateObject private var selectionManager = RecentFileSelectionManager.shared
-    public var body: some View {
-        if fileURL.isFileURL {
-            HStack {
-                Image(nsImage: NSWorkspace.shared.icon(for: UTType(filenameExtension: fileExtension) ?? .data))
-                    .font(.system(size: 25))
-                VStack(alignment: .leading) {
-                    Text(fileName)
-                        .bold()
-                        .lineLimit(1)
-                    
-                    Text(filePath)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                }
-                Spacer()
-            }
-            .padding(7.5)
-            .background(.tint.opacity(selected ? 1 : 0))
-            .cornerRadius(5)
-            .contentShape(.rect)
-            .onTapGesture {
-                if pressedBefore {
-                    openAction(fileURL)
-                    pressedBefore = false
-                } else {
-                    pressedBefore = true
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.75) {
-                        pressedBefore = false
-                    }
-                }
-                selectionManager.deselectCurrentFile()
-                immuneToReset = true
-                selected = true
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    selectionManager.resetSelection = false
-                    immuneToReset = false
-                }
-            }
-            .contextMenu {
-                if let onDelete {
-                    Button("Delete", systemImage: "trash") { onDelete(fileURL) }
-                }
-            }
-            .onChange(of: selectionManager.resetSelection) { bool in
-                if !immuneToReset && bool {
-                    selected = false
-                }
-            }
+    public func provideRecentFiles() -> [RecentFile] {
+        NSDocumentController.shared.recentDocumentURLs.map {
+            RecentFile(url: $0)
         }
     }
 }
 
-// MARK: - Helper Extensions
-
-public extension Image {
-    func systemImage(_ systemName: String) -> Image {
-        Image(systemName: systemName)
+extension View {
+    func onWindowAppear(_ callback: @escaping (NSWindow?) -> Void) -> some View {
+        background(WindowAccessor(callback: callback))
     }
 }
 
-public extension String {
-    func removing(_ string: String) -> String {
-        self.replacingOccurrences(of: string, with: "")
-    }
-}
+struct WindowAccessor: NSViewRepresentable {
+    var callback: (NSWindow?) -> Void
 
+    func makeNSView(context: Context) -> NSView {
+        let v = NSView()
+        DispatchQueue.main.async {
+            self.callback(v.window)
+        }
+        return v
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) { }
+}
