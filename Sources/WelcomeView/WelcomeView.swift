@@ -29,12 +29,7 @@ public struct WelcomeView: View {
     @State public var recents: [RecentFile]
     @State private var resetSelection = false
     @State private var selectedFile: URL?
-    public init(
-        titleText: String,
-        menu: WelcomeMenu,
-        emptyMessage: String = "No Recent Files",
-        recentFileProvider: RecentFileProvider = .default
-    ) {
+    public init(titleText: String, menu: WelcomeMenu, emptyMessage: String = "No Recent Files", recentFileProvider: RecentFileProvider = .default) {
         self.titleText = titleText
         self.menu = menu
         self.emptyMessage = emptyMessage
@@ -301,6 +296,9 @@ public struct RecentFile: Hashable, Identifiable {
 
 @MainActor
 open class RecentDocumentControllerFileProvider: RecentFileProvider {
+    public init() {
+        
+    }
     open func openFile(_ file: RecentFile) {
         NSWorkspace.shared.open(file.url)
     }
