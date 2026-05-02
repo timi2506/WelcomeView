@@ -95,8 +95,9 @@ public struct WelcomeView: View {
                         }
                         .listStyle(.inset)
                         .refreshable {
+                            let files =  await recentFileProvider.provideRecentFiles()
                             withAnimation {
-                                recents = recentFileProvider.provideRecentFiles()
+                                recents = files
                             }
                         }
                         .scrollIndicators(.never)
@@ -117,9 +118,10 @@ public struct WelcomeView: View {
             .padding(5)
         }
         .frame(width: 745, height: 450.0)
-        .onAppear {
+        .task {
+            let files =  await recentFileProvider.provideRecentFiles()
             withAnimation {
-                recents = recentFileProvider.provideRecentFiles()
+                recents = files
             }
         }
     }
@@ -253,7 +255,7 @@ public struct WelcomeMenu: View {
 
 @MainActor
 public protocol RecentFileProvider {
-    func provideRecentFiles() -> [RecentFile]
+    func provideRecentFiles() async -> [RecentFile]
     func openFile(_ file: RecentFile)
     func makeTitle(for file: RecentFile) -> String
     func makeSubtitle(for file: RecentFile) -> String
@@ -303,7 +305,7 @@ open class RecentDocumentControllerFileProvider: RecentFileProvider {
         NSWorkspace.shared.open(file.url)
     }
     
-    open func provideRecentFiles() -> [RecentFile] {
+    open func provideRecentFiles() async -> [RecentFile] {
         NSDocumentController.shared.recentDocumentURLs.map {
             RecentFile(url: $0)
         }
