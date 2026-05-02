@@ -3,7 +3,7 @@ import UniformTypeIdentifiers
 import Combine
 
 public struct WelcomeWindowView: View {
-    let content: WelcomeView
+    public let content: WelcomeView
     
     public var body: some View {
         content
