@@ -3,6 +3,9 @@ import UniformTypeIdentifiers
 import Combine
 
 public struct WelcomeWindowView: View {
+    public init(content: WelcomeView) {
+        self.content = content
+    }
     public let content: WelcomeView
     
     public var body: some View {
