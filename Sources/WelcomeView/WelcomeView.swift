@@ -26,15 +26,15 @@ public struct WelcomeView: View {
     public var menu: WelcomeMenu
     public var emptyMessage = "No Recent Files"
     public let recentFileProvider: RecentFileProvider
-    @State public var recents: [RecentFile]
+    @State private var recents: [RecentFile] = []
     @State private var resetSelection = false
     @State private var selectedFile: URL?
+    
     public init(titleText: String, menu: WelcomeMenu, emptyMessage: String = "No Recent Files", recentFileProvider: RecentFileProvider = .default) {
         self.titleText = titleText
         self.menu = menu
         self.emptyMessage = emptyMessage
         self.recentFileProvider = recentFileProvider
-        self.recents = []
     }
 
     public var body: some View {
