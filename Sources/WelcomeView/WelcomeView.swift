@@ -293,10 +293,10 @@ public struct RecentFile: Hashable, Identifiable {
     }
     public let id = UUID()
 
-    let customIcon: NSImage?
-    let customTitle: String?
-    let customSubtitle: String?
-    let url: URL
+    public let customIcon: NSImage?
+    public let customTitle: String?
+    public let customSubtitle: String?
+    public let url: URL
 }
 
 @MainActor
@@ -312,13 +312,13 @@ open class RecentDocumentControllerFileProvider: RecentFileProvider {
     }
 }
 
-extension View {
+fileprivate extension View {
     func onWindowAppear(_ callback: @escaping (NSWindow?) -> Void) -> some View {
         background(WindowAccessor(callback: callback))
     }
 }
 
-struct WindowAccessor: NSViewRepresentable {
+fileprivate struct WindowAccessor: NSViewRepresentable {
     var callback: (NSWindow?) -> Void
 
     func makeNSView(context: Context) -> NSView {
