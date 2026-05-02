@@ -300,7 +300,7 @@ public struct RecentFile: Hashable, Identifiable {
 }
 
 @MainActor
-public class RecentDocumentControllerFileProvider: RecentFileProvider {
+open class RecentDocumentControllerFileProvider: RecentFileProvider {
     public func openFile(_ file: RecentFile) {
         NSWorkspace.shared.open(file.url)
     }
