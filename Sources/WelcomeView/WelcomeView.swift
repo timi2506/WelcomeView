@@ -2,7 +2,7 @@ import SwiftUI
 import UniformTypeIdentifiers
 import Combine
 
-public struct WelcomeViewWindow: View {
+public struct WelcomeWindowView: View {
     let content: WelcomeView
     
     public var body: some View {
