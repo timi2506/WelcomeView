@@ -301,11 +301,11 @@ public struct RecentFile: Hashable, Identifiable {
 
 @MainActor
 open class RecentDocumentControllerFileProvider: RecentFileProvider {
-    public func openFile(_ file: RecentFile) {
+    open func openFile(_ file: RecentFile) {
         NSWorkspace.shared.open(file.url)
     }
     
-    public func provideRecentFiles() -> [RecentFile] {
+    open func provideRecentFiles() -> [RecentFile] {
         NSDocumentController.shared.recentDocumentURLs.map {
             RecentFile(url: $0)
         }
